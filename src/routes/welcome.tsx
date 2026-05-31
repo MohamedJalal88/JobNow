@@ -198,6 +198,24 @@ function Landing() {
                 Log in
               </Link>
             </div>
+            
+            <div className="mt-6 flex flex-wrap gap-3 items-center">
+              <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Install App:</span>
+              <a 
+                href="https://github.com/MohamedJalal88/JobNow/releases/download/v1.0.0/jobnow.apk" 
+                download
+                className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-full border border-border hover:border-primary/40 bg-card hover:bg-muted shadow-soft transition-all"
+              >
+                🤖 Download Android App (.apk)
+              </a>
+              <a 
+                href="https://github.com/MohamedJalal88/JobNow/releases/download/v1.0.0/jobnow-setup.exe" 
+                download
+                className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-full border border-border hover:border-primary/40 bg-card hover:bg-muted shadow-soft transition-all"
+              >
+                💻 Download Windows App (.exe)
+              </a>
+            </div>
             <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-xl">
               {stats.map((s) => (
                 <div key={s.v}>
