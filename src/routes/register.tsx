@@ -51,6 +51,7 @@ const makeRegisterSchema = (isCompleteMode: boolean, signUpStep: "phone" | "otp"
           .string()
           .min(10, "Enter a valid 10-digit phone number")
           .regex(/^[6-9]\d{9}$/, "Must be a valid Indian mobile number"),
+        email: z.string().email("Invalid email address"),
         password: z.string().min(6, "Password must be at least 6 characters"),
         confirmPassword: z.string(),
       })
@@ -65,6 +66,7 @@ const makeRegisterSchema = (isCompleteMode: boolean, signUpStep: "phone" | "otp"
       .string()
       .min(10, "Enter a valid 10-digit phone number")
       .regex(/^[6-9]\d{9}$/, "Must be a valid Indian mobile number"),
+    email: z.string().email("Invalid email address"),
   });
 };
 
@@ -146,7 +148,7 @@ function Register() {
   };
 
   const handleSendOtp = async () => {
-    const isValid = await trigger("phone");
+    const isValid = await trigger(["phone", "email"]);
     if (!isValid) return;
 
     setIsSubmitting(true);
@@ -516,6 +518,7 @@ function Register() {
           await registerUser({
             name: "",
             phone: data.phone,
+            email: data.email,
             password: data.password || "",
             role: role as UserRole,
             skill: "",
@@ -909,6 +912,19 @@ function Register() {
                   {errors.phone && <p className="mt-1 text-xs text-destructive">{errors.phone.message}</p>}
                 </div>
 
+                <div>
+                  <Label className="text-xs">Email address (Gmail) <span className="text-destructive">*</span></Label>
+                  <Input
+                    id="reg-email"
+                    className={`mt-1.5 h-12 rounded-xl bg-card ${errors.email ? "border-destructive" : ""}`}
+                    placeholder="yourname@gmail.com"
+                    type="email"
+                    disabled={isSubmitting}
+                    {...register("email")}
+                  />
+                  {errors.email && <p className="mt-1 text-xs text-destructive">{errors.email.message}</p>}
+                </div>
+
                 <Button
                   type="button"
                   onClick={handleSendOtp}
@@ -923,36 +939,6 @@ function Register() {
                     "Send Verification OTP"
                   )}
                 </Button>
-
-                <div className="flex flex-col items-center pt-2">
-                  <span className="text-xs text-muted-foreground mb-2">or login with the Google account</span>
-                  <button
-                    type="button"
-                    onClick={handleGoogleLogin}
-                    disabled={isSubmitting}
-                    className="w-full h-12 rounded-full border border-input bg-card font-semibold text-sm flex items-center justify-center gap-2 hover:bg-muted transition-colors disabled:opacity-50 shadow-soft"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24">
-                      <path
-                        fill="#4285F4"
-                        d="M22.5 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.22-4.74 3.22-8.32z"
-                      />
-                      <path
-                        fill="#34A853"
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.25 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      />
-                      <path
-                        fill="#FBBC05"
-                        d="M5.84 14.1A6.94 6.94 0 0 1 5.5 12c0-.73.13-1.44.34-2.1V7.06H2.18A11 11 0 0 0 1 12c0 1.78.43 3.46 1.18 4.94l3.66-2.84z"
-                      />
-                      <path
-                        fill="#EA4335"
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"
-                      />
-                    </svg>
-                    Continue with Google
-                  </button>
-                </div>
               </div>
             )}
 
@@ -968,6 +954,7 @@ function Register() {
                   />
                   {/* Keep original phone input in the DOM so react-hook-form keeps it registered */}
                   <input type="hidden" {...register("phone")} />
+                  <input type="hidden" {...register("email")} />
                 </div>
 
                 <motion.div
@@ -1024,6 +1011,7 @@ function Register() {
               <div className="space-y-4">
                 {/* Keep original phone input in the DOM so react-hook-form keeps it registered */}
                 <input type="hidden" {...register("phone")} />
+                <input type="hidden" {...register("email")} />
 
                 <div className="rounded-2xl border border-border bg-card p-6 shadow-soft space-y-4">
                   <div>

@@ -40,7 +40,6 @@ function WorkerHome() {
   const firstName = user?.name?.split(" ")[0] ?? "there";
   const [skill, setSkill] = useState<string | null>(null);
   const [available, setAvailable] = useState(true);
-  const [highContrast, setHighContrast] = useState(false);
 
   const [jobs, setJobs] = useState<any[]>([]);
   const [activeJobs, setActiveJobs] = useState<any[]>([]);
@@ -313,7 +312,7 @@ function WorkerHome() {
   const filtered = jobs.filter((j) => !skill || j.skill === skill);
 
   return (
-    <div className={cn("max-w-7xl mx-auto px-4 md:px-6 lg:px-8 pt-6 md:pt-8 pb-10", highContrast ? "bg-white text-black font-bold p-4 border-4 border-black rounded-3xl" : "")}>
+    <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 pt-6 md:pt-8 pb-10">
       {/* Hero */}
       <section className="relative overflow-hidden rounded-3xl bg-gradient-hero text-white p-6 md:p-8 shadow-elegant">
         <div className="absolute inset-0 bg-gradient-mesh opacity-40" />
@@ -328,14 +327,6 @@ function WorkerHome() {
             </p>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="glass border border-white/20 rounded-2xl p-3 flex items-center gap-4 w-full sm:w-auto">
-              <div>
-                <p className="text-[10px] uppercase tracking-widest opacity-80">{t("Sunlight Mode")}</p>
-                <p className="font-semibold text-xs">High Contrast</p>
-              </div>
-              <Switch checked={highContrast} onCheckedChange={setHighContrast} />
-            </div>
-
             <div className="glass border border-white/20 rounded-2xl p-3 flex items-center gap-4 w-full sm:w-auto">
               <div>
                 <p className="text-[10px] uppercase tracking-widest opacity-80">{t("Availability")}</p>
