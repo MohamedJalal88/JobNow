@@ -85,6 +85,7 @@ alter table public.messages enable row level security;
 
 -- Setup basic Policies
 create policy "Profiles are viewable by anyone" on public.profiles for select using (true);
+create policy "Users can insert their own profile" on public.profiles for insert with check (auth.uid() = id);
 create policy "Users can update their own profile" on public.profiles for update using (auth.uid() = id);
 
 create policy "Jobs are viewable by anyone" on public.jobs for select using (true);

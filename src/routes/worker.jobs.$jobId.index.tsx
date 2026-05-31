@@ -258,7 +258,7 @@ function JobDetails() {
             <p className="mt-2 text-sm text-muted-foreground">{job.location}</p>
             <div ref={mapContainerRef} className="mt-4 h-72 md:h-96 rounded-2xl border border-border overflow-hidden relative" style={{ minHeight: "288px" }}>
               <p className="absolute top-2 left-2 text-[10px] font-bold z-20 bg-white/90 px-2 py-0.5 rounded shadow-sm border border-border text-primary">
-                Debug: loaded={googleMapsLoaded ? "Y" : "N"} | sdk={window.google?.maps ? "Y" : "N"} | job={job ? "Y" : "N"} | ref={isMounted ? "Y" : "N"} | {debugStatus}
+                Debug: loaded={googleMapsLoaded ? "Y" : "N"} | sdk={typeof window !== "undefined" && window.google?.maps ? "Y" : "N"} | job={job ? "Y" : "N"} | ref={isMounted ? "Y" : "N"} | {debugStatus}
               </p>
               {!googleMapsLoaded && (
                 <div className="absolute inset-0 flex items-center justify-center bg-muted text-xs text-muted-foreground">

@@ -35,9 +35,11 @@ export function SideNav({
       )}
     >
       <div className={cn("relative px-5 pt-6 pb-5 flex items-center gap-2.5", collapsed && "justify-center px-0")}>
-        <div className="h-10 w-10 rounded-2xl bg-primary/10 grid place-items-center border border-primary/20 shadow-soft">
-          <Briefcase className="h-5 w-5 text-primary" />
-        </div>
+        <img 
+          src="/logo.png" 
+          alt="JobNow Logo" 
+          className="h-10 w-10 rounded-2xl shadow-soft object-cover border border-border" 
+        />
         {!collapsed && (
           <div>
             <p className="text-lg font-extrabold leading-tight tracking-tight">JobNow</p>

@@ -78,3 +78,6 @@ create policy "Authenticated users can insert notifications"
 -- alter publication supabase_realtime add table public.messages;
 -- alter publication supabase_realtime add table public.notifications;
 
+-- 7. Add missing INSERT policy for public.profiles (needed for upsert during registration/update)
+create policy "Users can insert their own profile" on public.profiles for insert with check (auth.uid() = id);
+
