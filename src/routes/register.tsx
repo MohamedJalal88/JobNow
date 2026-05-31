@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Eye, EyeOff, Loader2, Navigation, Search, Upload, Check } from "lucide-react";
+import { Eye, EyeOff, Loader2, Navigation, Search, Upload, Check, Mail, Phone } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -30,7 +30,7 @@ export const Route = createFileRoute("/register")({
 });
 
 // ─── Form schema ──────────────────────────────────────────────────────────────
-const makeRegisterSchema = (isCompleteMode: boolean, signUpStep: "phone" | "otp" | "password") => {
+const makeRegisterSchema = (isCompleteMode: boolean, signUpStep: "phone" | "otp" | "password", tab: "phone" | "email") => {
   if (isCompleteMode) {
     return z.object({
       name: z.string().min(2, "Name must be at least 2 characters"),
@@ -50,8 +50,10 @@ const makeRegisterSchema = (isCompleteMode: boolean, signUpStep: "phone" | "otp"
         phone: z
           .string()
           .min(10, "Enter a valid 10-digit phone number")
-          .regex(/^[6-9]\d{9}$/, "Must be a valid Indian mobile number"),
-        email: z.string().email("Invalid email address"),
+          .regex(/^[6-9]\d{9}$/, "Must be a valid Indian mobile number")
+          .optional()
+          .or(z.literal("")),
+        email: z.string().email("Invalid email address").optional().or(z.literal("")),
         password: z.string().min(6, "Password must be at least 6 characters"),
         confirmPassword: z.string(),
       })
@@ -61,12 +63,17 @@ const makeRegisterSchema = (isCompleteMode: boolean, signUpStep: "phone" | "otp"
       });
   }
 
+  if (tab === "email") {
+    return z.object({
+      email: z.string().email("Invalid email address"),
+    });
+  }
+
   return z.object({
     phone: z
       .string()
       .min(10, "Enter a valid 10-digit phone number")
       .regex(/^[6-9]\d{9}$/, "Must be a valid Indian mobile number"),
-    email: z.string().email("Invalid email address"),
   });
 };
 
@@ -86,6 +93,7 @@ function Register() {
   const currentRole = isCompleteMode && user && !isProfileIncomplete(user) ? user.role : role;
   const isWorker = currentRole === "worker";
   const [showPwd, setShowPwd] = useState(false);
+  const [tab, setTab] = useState<"phone" | "email">("phone");
   const [skill, setSkill] = useState<string>("");
   const [experience, setExperience] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -148,24 +156,38 @@ function Register() {
   };
 
   const handleSendOtp = async () => {
-    const isValid = await trigger(["phone", "email"]);
+    const isValid = await trigger(tab);
     if (!isValid) return;
 
     setIsSubmitting(true);
-    const rawPhone = getValues("phone");
-    const formattedPhone = `+91${rawPhone.replace(/\D/g, "")}`;
-
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: formattedPhone,
-        options: {
-          data: {
-            role: role,
+      if (tab === "phone") {
+        const rawPhone = getValues("phone");
+        const formattedPhone = `+91${rawPhone.replace(/\D/g, "")}`;
+        
+        const { error } = await supabase.auth.signInWithOtp({
+          phone: formattedPhone,
+          options: {
+            data: {
+              role: role,
+            },
           },
-        },
-      });
-      if (error) throw error;
-      toast.success("Verification OTP sent! Please check your mobile.");
+        });
+        if (error) throw error;
+        toast.success("Verification OTP sent! Please check your mobile.");
+      } else {
+        const emailAddress = getValues("email");
+        const { error } = await supabase.auth.signInWithOtp({
+          email: emailAddress,
+          options: {
+            data: {
+              role: role,
+            },
+          },
+        });
+        if (error) throw error;
+        toast.success("Verification OTP sent! Please check your email inbox.");
+      }
       setSignUpStep("otp");
     } catch (err) {
       console.error("Real Supabase OTP send failed:", err);
@@ -186,8 +208,6 @@ function Register() {
     }
 
     setIsSubmitting(true);
-    const rawPhone = getValues("phone");
-    const formattedPhone = `+91${rawPhone.replace(/\D/g, "")}`;
 
     // Bypass/Fallback code 123456
     if (otpCode === "123456") {
@@ -198,12 +218,24 @@ function Register() {
     }
 
     try {
-      const { error } = await supabase.auth.verifyOtp({
-        phone: formattedPhone,
-        token: otpCode,
-        type: "sms",
-      });
-      if (error) throw error;
+      if (tab === "phone") {
+        const rawPhone = getValues("phone");
+        const formattedPhone = `+91${rawPhone.replace(/\D/g, "")}`;
+        const { error } = await supabase.auth.verifyOtp({
+          phone: formattedPhone,
+          token: otpCode,
+          type: "sms",
+        });
+        if (error) throw error;
+      } else {
+        const emailAddress = getValues("email");
+        const { error } = await supabase.auth.verifyOtp({
+          email: emailAddress,
+          token: otpCode,
+          type: "email",
+        });
+        if (error) throw error;
+      }
       
       toast.success("OTP Verified! Please create a password for your account.");
       setSignUpStep("password");
@@ -292,7 +324,7 @@ function Register() {
     trigger,
     formState: { errors },
   } = useForm<any>({
-    resolver: zodResolver(makeRegisterSchema(isCompleteMode, signUpStep)),
+    resolver: zodResolver(makeRegisterSchema(isCompleteMode, signUpStep, tab)),
     mode: "onBlur",
   });
 
@@ -515,16 +547,27 @@ function Register() {
             return;
           }
 
-          await registerUser({
-            name: "",
-            phone: data.phone,
-            email: data.email,
-            password: data.password || "",
-            role: role as UserRole,
-            skill: "",
-            location: "",
-          });
-          toast.success("Phone verified and account created! Complete your profile next 🎉");
+          if (tab === "phone") {
+            await registerUser({
+              name: "",
+              phone: data.phone,
+              password: data.password || "",
+              role: role as UserRole,
+              skill: "",
+              location: "",
+            });
+          } else {
+            await registerUser({
+              name: "",
+              email: data.email,
+              phone: "",
+              password: data.password || "",
+              role: role as UserRole,
+              skill: "",
+              location: "",
+            });
+          }
+          toast.success("Account created successfully! Complete your profile next 🎉");
         }
       }
     } catch (err) {
@@ -899,31 +942,59 @@ function Register() {
           <>
             {signUpStep === "phone" && (
               <div className="space-y-4">
-                <div>
-                  <Label className="text-xs">Phone number <span className="text-destructive">*</span></Label>
-                  <Input
-                    id="reg-phone"
-                    className={`mt-1.5 h-12 rounded-xl bg-card ${errors.phone ? "border-destructive" : ""}`}
-                    placeholder="98765 43210"
-                    type="tel"
-                    disabled={isSubmitting}
-                    {...register("phone")}
-                  />
-                  {errors.phone && <p className="mt-1 text-xs text-destructive">{errors.phone.message}</p>}
+                {/* Tab switcher */}
+                <div className="grid grid-cols-2 p-1 bg-muted rounded-full">
+                  {(["phone", "email"] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => { setTab(t); }}
+                      className={`relative h-10 rounded-full text-xs md:text-sm font-medium capitalize transition-colors ${tab === t ? "text-primary-foreground" : "text-muted-foreground"}`}
+                    >
+                      {tab === t && (
+                        <motion.span layoutId="register-tab" className="absolute inset-0 rounded-full bg-gradient-primary" transition={{ type: "spring", stiffness: 400, damping: 30 }} />
+                      )}
+                      <span className="relative inline-flex items-center gap-1.5">
+                        {t === "phone" && <Phone className="h-3.5 w-3.5" />}
+                        {t === "email" && <Mail className="h-3.5 w-3.5" />}
+                        {t}
+                      </span>
+                    </button>
+                  ))}
                 </div>
 
-                <div>
-                  <Label className="text-xs">Email address (Gmail) <span className="text-destructive">*</span></Label>
-                  <Input
-                    id="reg-email"
-                    className={`mt-1.5 h-12 rounded-xl bg-card ${errors.email ? "border-destructive" : ""}`}
-                    placeholder="yourname@gmail.com"
-                    type="email"
-                    disabled={isSubmitting}
-                    {...register("email")}
-                  />
-                  {errors.email && <p className="mt-1 text-xs text-destructive">{errors.email.message}</p>}
-                </div>
+                {tab === "phone" ? (
+                  <div>
+                    <Label className="text-xs">Phone number <span className="text-destructive">*</span></Label>
+                    <div className="mt-1.5 flex gap-2">
+                      <div className="h-12 px-3 rounded-xl border border-input bg-card grid place-items-center text-sm font-medium">+91</div>
+                      <div className="flex-1">
+                        <Input
+                          id="reg-phone"
+                          className={`h-12 rounded-xl bg-card ${errors.phone ? "border-destructive" : ""}`}
+                          placeholder="98765 43210"
+                          type="tel"
+                          disabled={isSubmitting}
+                          {...register("phone")}
+                        />
+                        {errors.phone && <p className="mt-1 text-xs text-destructive">{errors.phone.message}</p>}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <Label className="text-xs">Email address (Gmail) <span className="text-destructive">*</span></Label>
+                    <Input
+                      id="reg-email"
+                      className={`mt-1.5 h-12 rounded-xl bg-card ${errors.email ? "border-destructive" : ""}`}
+                      placeholder="yourname@gmail.com"
+                      type="email"
+                      disabled={isSubmitting}
+                      {...register("email")}
+                    />
+                    {errors.email && <p className="mt-1 text-xs text-destructive">{errors.email.message}</p>}
+                  </div>
+                )}
 
                 <Button
                   type="button"
