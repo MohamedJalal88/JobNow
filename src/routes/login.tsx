@@ -107,7 +107,15 @@ function Login() {
       toast.success("Welcome back! 👋");
       nav({ to: "/welcome" });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Login failed. Try again.");
+      if (err instanceof Error && err.message === "INCORRECT_PASSWORD") {
+        phoneForm.setError("password", {
+          type: "manual",
+          message: "Incorrect password. Please verify and try again.",
+        });
+        phoneForm.setFocus("password");
+      } else {
+        toast.error(err instanceof Error ? err.message : "Login failed. Try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -120,7 +128,15 @@ function Login() {
       toast.success("Welcome back! 👋");
       nav({ to: "/welcome" });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Login failed. Try again.");
+      if (err instanceof Error && err.message === "INCORRECT_PASSWORD") {
+        emailForm.setError("password", {
+          type: "manual",
+          message: "Incorrect password. Please verify and try again.",
+        });
+        emailForm.setFocus("password");
+      } else {
+        toast.error(err instanceof Error ? err.message : "Login failed. Try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -211,7 +227,7 @@ function Login() {
               <input type="checkbox" className="h-4 w-4 rounded border-input accent-primary" defaultChecked />
               <span className="text-muted-foreground">Remember me</span>
             </label>
-            <Link to="/forgot-password" className="font-medium text-primary">Forgot password?</Link>
+            <Link to="/forgot-password" search={{ role }} className="font-medium text-primary">Forgot password?</Link>
           </div>
 
           <Button
@@ -266,7 +282,7 @@ function Login() {
               <input type="checkbox" className="h-4 w-4 rounded border-input accent-primary" defaultChecked />
               <span className="text-muted-foreground">Remember me</span>
             </label>
-            <Link to="/forgot-password" className="font-medium text-primary">Forgot password?</Link>
+            <Link to="/forgot-password" search={{ role }} className="font-medium text-primary">Forgot password?</Link>
           </div>
 
           <Button

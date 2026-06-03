@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Loader2, Mail, ShieldCheck, Eye, EyeOff, Check } from "lucide-react";
 import { z } from "zod";
@@ -20,6 +20,7 @@ export const Route = createFileRoute("/forgot-password")({
 });
 
 function ForgotPassword() {
+  const navigate = useNavigate();
   const { role } = Route.useSearch();
   const [step, setStep] = useState<"email" | "otp" | "password" | "success">("email");
   const [email, setEmail] = useState("");
@@ -48,11 +49,11 @@ function ForgotPassword() {
 
     setIsSubmitting(true);
     try {
-      // 1. Check if email exists in profiles table
+      // 1. Check if email exists in profiles table case-insensitively
       const { data: profile, error: profileErr } = await supabase
         .from("profiles")
-        .select("id")
-        .eq("email", cleanEmail)
+        .select("id, role")
+        .ilike("email", cleanEmail)
         .maybeSingle();
 
       if (profileErr) throw profileErr;
@@ -61,6 +62,11 @@ function ForgotPassword() {
         setEmailError("This email address is not registered in our system. Please check the spelling or sign up first.");
         setIsSubmitting(false);
         return;
+      }
+
+      // If the profile role is different from the current search parameter role, update the URL
+      if (profile.role !== role) {
+        navigate({ search: { role: profile.role as "worker" | "contractor" }, replace: true });
       }
 
       // 2. Call Supabase to send recovery OTP
@@ -79,7 +85,12 @@ function ForgotPassword() {
       setStep("otp");
     } catch (err) {
       console.error(err);
-      toast.error(err instanceof Error ? err.message : "Failed to request password reset. Try again.");
+      const errMsg = err instanceof Error 
+        ? err.message 
+        : (err && typeof err === 'object' && 'message' in err)
+          ? String((err as any).message)
+          : "Failed to request password reset. Try again.";
+      toast.error(errMsg);
     } finally {
       setIsSubmitting(false);
     }
