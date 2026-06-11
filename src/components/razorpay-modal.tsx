@@ -50,130 +50,15 @@ export function RazorpayModal({ isOpen, onClose, onSuccess, amount, jobTitle }: 
 
     setStatus("processing");
 
-    // Load Razorpay JS SDK dynamically
-    let scriptLoaded = false;
-    try {
-      scriptLoaded = await new Promise<boolean>((resolve) => {
-        if ((window as any).Razorpay) {
-          resolve(true);
-          return;
-        }
-        const script = document.createElement("script");
-        script.src = "https://checkout.razorpay.com/v1/checkout.js";
-        script.onload = () => resolve(true);
-        script.onerror = () => resolve(false);
-        document.body.appendChild(script);
-      });
-    } catch (err) {
-      console.warn("Failed to load Razorpay script. Falling back to simulation.", err);
-    }
+    // Simulated payment processing delay for testing/demo
+    await new Promise((r) => setTimeout(r, 2000));
+    setStatus("success");
+    await new Promise((r) => setTimeout(r, 1200));
 
-    const isLiveConfigured = !!(import.meta.env.VITE_RAZORPAY_KEY_ID);
-
-    // Call server function to create order
-    let orderResult: any = null;
-    let orderError: string | null = null;
-    if (scriptLoaded && isLiveConfigured) {
-      try {
-        orderResult = await createRazorpayOrder({
-          data: {
-            amount,
-            jobId: jobTitle.replace(/\s+/g, "_").toLowerCase(),
-          }
-        });
-      } catch (err: any) {
-        console.warn("Could not create real Razorpay order on server.", err);
-        orderError = err.message || String(err);
-      }
-    }
-
-    if (isLiveConfigured && orderError) {
-      setError(`Razorpay Order Error: ${orderError}`);
-      setStatus("idle");
-      return;
-    }
-
-    // If script loaded and order created successfully, execute real Razorpay checkout
-    if (scriptLoaded && orderResult) {
-      try {
-        const options: any = {
-          key: orderResult.keyId,
-          amount: orderResult.amount,
-          currency: orderResult.currency,
-          name: "JobNow Escrow",
-          description: `Wage escrow for: ${jobTitle}`,
-          order_id: orderResult.orderId,
-          handler: async function (response: any) {
-            setStatus("processing");
-            try {
-              // Verify signature securely on the server
-              const verifyRes = await verifyRazorpayPayment({
-                data: {
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                }
-              });
-
-              if (verifyRes.success) {
-                setStatus("success");
-                await new Promise((r) => setTimeout(r, 1200));
-                onSuccess(response.razorpay_payment_id);
-                setStatus("idle");
-                onClose();
-              } else {
-                setError("Payment signature verification failed.");
-                setStatus("idle");
-              }
-            } catch (err: any) {
-              console.error("Signature verification failed:", err);
-              setError("Payment verification failed. Please contact support.");
-              setStatus("idle");
-            }
-          },
-          prefill: {
-            method: method,
-            vpa: method === "upi" ? upiId : undefined,
-          },
-          theme: {
-            color: "#1e3a8a",
-          },
-          modal: {
-            ondismiss: function () {
-              setStatus("idle");
-            },
-          },
-        };
-
-        // Prefill card details securely
-        if (method === "card") {
-          const [month, year] = expiry.split("/");
-          options.prefill.card = {
-            number: cardNumber.replace(/\s/g, ""),
-            expiry_month: month,
-            expiry_year: `20${year}`,
-            cvv: cvv,
-          };
-        }
-
-        const rzp = new (window as any).Razorpay(options);
-        rzp.open();
-      } catch (err: any) {
-        console.error("Razorpay widget error:", err);
-        setError("Could not open Razorpay checkout widget.");
-        setStatus("idle");
-      }
-    } else {
-      // Fallback: Simulation mode
-      await new Promise((r) => setTimeout(r, 2200));
-      setStatus("success");
-      await new Promise((r) => setTimeout(r, 1200));
-
-      const simulatedTxId = `pay_mock_${Math.random().toString(36).substring(2, 16)}`;
-      onSuccess(simulatedTxId);
-      setStatus("idle");
-      onClose();
-    }
+    const simulatedTxId = `pay_mock_${Math.random().toString(36).substring(2, 16)}`;
+    onSuccess(simulatedTxId);
+    setStatus("idle");
+    onClose();
   };
 
   return (
