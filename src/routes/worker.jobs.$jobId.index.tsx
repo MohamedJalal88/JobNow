@@ -11,7 +11,7 @@ import { SKILLS } from "@/lib/skills-config";
 import { toast } from "sonner";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { loadGoogleMaps, googleGeocodeSearch } from "@/lib/google-maps";
+import { MapDisplay } from "@/components/map";
 
 export const Route = createFileRoute("/worker/jobs/$jobId/")({
   head: () => ({ meta: [{ title: "Job details — JobNow" }] }),
@@ -24,89 +24,7 @@ function JobDetails() {
   const [related, setRelated] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
-  const mapRef = useRef<any>(null);
-  const [isMounted, setIsMounted] = useState(false);
-  const [mapError, setMapError] = useState<string | null>(null);
-  const [debugStatus, setDebugStatus] = useState("Debug: Map Container Mounted");
 
-  // Dynamically load Google Maps on mount (Client-side only)
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    async function loadGoogle() {
-      try {
-        await loadGoogleMaps();
-        setGoogleMapsLoaded(true);
-      } catch (err) {
-        console.error("Failed to load Google Maps dynamically:", err);
-      }
-    }
-
-    loadGoogle();
-  }, []);
-
-  // Callback ref to handle Google Maps initialization reactively when the DOM node mounts/unmounts
-  const mapContainerRef = useCallback((node: HTMLDivElement | null) => {
-    if (!node) {
-      setIsMounted(false);
-      if (mapRef.current) {
-        mapRef.current = null;
-      }
-      return;
-    }
-
-    setIsMounted(true);
-
-    if (!googleMapsLoaded || !window.google?.maps || !job) {
-      return;
-    }
-
-    if (mapRef.current) {
-      mapRef.current = null;
-    }
-
-    const initializeMapInstance = (latitude: number, longitude: number) => {
-      setDebugStatus(`Debug: Map Initializing (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
-      try {
-        const mapInstance = new window.google.maps.Map(node, {
-          center: { lat: latitude, lng: longitude },
-          zoom: 15,
-          disableDefaultUI: true,
-          zoomControl: true,
-        });
-
-        new window.google.maps.Marker({
-          position: { lat: latitude, lng: longitude },
-          map: mapInstance,
-        });
-
-        mapRef.current = mapInstance;
-        setDebugStatus(`Debug: Map Initialized (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
-      } catch (err) {
-        console.error("Google Maps initialization error:", err);
-        setMapError(err instanceof Error ? err.message : String(err));
-        setDebugStatus(`Debug: Map Error - ${err instanceof Error ? err.message : String(err)}`);
-      }
-    };
-
-    const latVal = job.latitude ? Number(job.latitude) : null;
-    const lngVal = job.longitude ? Number(job.longitude) : null;
-
-    if (latVal && lngVal) {
-      initializeMapInstance(latVal, lngVal);
-    } else if (job.location) {
-      googleGeocodeSearch(job.location)
-        .then((result) => {
-          initializeMapInstance(result.latitude, result.longitude);
-        })
-        .catch(() => {
-          initializeMapInstance(28.5355, 77.3910);
-        });
-    } else {
-      initializeMapInstance(28.5355, 77.3910);
-    }
-  }, [googleMapsLoaded, job]);
 
   const skill = SKILLS.find((s) => s.id === job?.skill);
   const Icon = skill?.icon;
@@ -256,20 +174,13 @@ function JobDetails() {
               <Badge variant="outline" className="rounded-full">{job.distanceKm} km</Badge>
             </div>
             <p className="mt-2 text-sm text-muted-foreground">{job.location}</p>
-            <div ref={mapContainerRef} className="mt-4 h-72 md:h-96 rounded-2xl border border-border overflow-hidden relative" style={{ minHeight: "288px" }}>
-              <p className="absolute top-2 left-2 text-[10px] font-bold z-20 bg-white/90 px-2 py-0.5 rounded shadow-sm border border-border text-primary">
-                Debug: loaded={googleMapsLoaded ? "Y" : "N"} | sdk={typeof window !== "undefined" && window.google?.maps ? "Y" : "N"} | job={job ? "Y" : "N"} | ref={isMounted ? "Y" : "N"} | {debugStatus}
-              </p>
-              {!googleMapsLoaded && (
-                <div className="absolute inset-0 flex items-center justify-center bg-muted text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5"><Loader2 className="h-4 w-4 animate-spin text-primary" /> Loading Map Interface...</span>
-                </div>
-              )}
-              {mapError && (
-                <div className="absolute inset-0 flex items-center justify-center bg-destructive/10 text-destructive text-xs p-4 text-center font-bold">
-                  Map Error: {mapError}
-                </div>
-              )}
+            <div className="mt-4 h-72 md:h-96 rounded-2xl border border-border overflow-hidden relative" style={{ minHeight: "288px" }}>
+              <MapDisplay
+                lat={job.latitude ? Number(job.latitude) : 28.5355}
+                lng={job.longitude ? Number(job.longitude) : 77.3910}
+                title={job.title}
+                className="h-full w-full"
+              />
             </div>
           </div>
 

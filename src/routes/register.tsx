@@ -9,13 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AuthSplit } from "@/components/auth-split";
+import { MapPicker } from "@/components/map";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuth, isProfileIncomplete } from "@/lib/auth";
 import type { UserRole } from "@/lib/auth";
 import { PRESET_AVATARS } from "@/lib/avatars-config";
 import { supabase } from "@/lib/supabase";
-import { loadGoogleMaps, googleReverseGeocode, googleGeocodeSearch } from "@/lib/google-maps";
+import { googleReverseGeocode, googleGeocodeSearch } from "@/lib/google-maps";
 
 // ─── Search schema ────────────────────────────────────────────────────────────
 const searchSchema = z.object({
@@ -285,9 +286,6 @@ function Register() {
   const skillOptions = isWorker ? WORKER_SKILLS : CONTRACTOR_TYPES;
 
   // Google map and geocoding state
-  const mapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
-  const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
   const [lat, setLat] = useState<number>(28.5355); // default Noida
   const [lng, setLng] = useState<number>(77.3910);
   const [isDetectingGps, setIsDetectingGps] = useState(false);
@@ -325,75 +323,7 @@ function Register() {
     }
   }, [isCompleteMode, user, setValue]);
 
-  // Load Google Maps dynamically on mount (Client-side only)
-  useEffect(() => {
-    if (typeof window === "undefined") return;
 
-    async function loadGoogle() {
-      try {
-        await loadGoogleMaps();
-        setGoogleMapsLoaded(true);
-      } catch (err) {
-        console.error("Failed to load Google Maps dynamically:", err);
-      }
-    }
-
-    loadGoogle();
-  }, []);
-
-  // Callback ref to build map
-  const mapContainerRef = useCallback((node: HTMLDivElement | null) => {
-    if (!node) {
-      if (mapRef.current) {
-        mapRef.current = null;
-      }
-      return;
-    }
-
-    if (!googleMapsLoaded || !window.google?.maps) return;
-    if (mapRef.current) return;
-
-    try {
-      const mapInstance = new window.google.maps.Map(node, {
-        center: { lat, lng },
-        zoom: 13,
-        disableDefaultUI: true,
-        zoomControl: true,
-      });
-
-      const markerInstance = new window.google.maps.Marker({
-        position: { lat, lng },
-        map: mapInstance,
-        draggable: true,
-      });
-
-      mapRef.current = mapInstance;
-      markerRef.current = markerInstance;
-
-      markerInstance.addListener("dragend", () => {
-        const pos = markerInstance.getPosition();
-        if (pos) {
-          const newLat = pos.lat();
-          const newLng = pos.lng();
-          setLat(newLat);
-          setLng(newLng);
-          reverseGeocode(newLat, newLng);
-        }
-      });
-
-      mapInstance.addListener("click", (e: any) => {
-        const pos = e.latLng;
-        if (pos) {
-          markerInstance.setPosition(pos);
-          setLat(pos.lat());
-          setLng(pos.lng());
-          reverseGeocode(pos.lat(), pos.lng());
-        }
-      });
-    } catch (err) {
-      console.error("Google Maps registration map init error:", err);
-    }
-  }, [googleMapsLoaded]);
 
   // Reverse geocoding when pin is dragged/clicked
   const reverseGeocode = async (latitude: number, longitude: number) => {
@@ -425,12 +355,6 @@ function Register() {
       setLat(latitude);
       setLng(longitude);
 
-      if (mapRef.current && markerRef.current) {
-        mapRef.current.setCenter({ lat: latitude, lng: longitude });
-        mapRef.current.setZoom(15);
-        markerRef.current.setPosition({ lat: latitude, lng: longitude });
-      }
-
       setValue("location", result.locationName, { shouldValidate: true, shouldDirty: true });
       if (result.pincode) {
         setValue("pincode", result.pincode.replace(/\D/g, "").slice(0, 6), { shouldValidate: true, shouldDirty: true });
@@ -451,12 +375,6 @@ function Register() {
         const longitude = pos.coords.longitude;
         setLat(latitude);
         setLng(longitude);
-
-        if (mapRef.current && markerRef.current) {
-          mapRef.current.setCenter({ lat: latitude, lng: longitude });
-          mapRef.current.setZoom(15);
-          markerRef.current.setPosition({ lat: latitude, lng: longitude });
-        }
 
         reverseGeocode(latitude, longitude);
         toast.success("GPS Coordinates mapped!");
@@ -553,7 +471,7 @@ function Register() {
 
   return (
     <AuthSplit
-      backTo={isCompleteMode ? "/welcome" : "/auth-choice"}
+      backTo={isCompleteMode ? "/welcome" : "/signup"}
       eyebrow={isCompleteMode ? `Completing ${currentRole} profile` : `Creating ${currentRole} account`}
       heading={
         isCompleteMode
@@ -825,7 +743,16 @@ function Register() {
 
             {/* Map Picker Visual */}
             <div className="mt-2 space-y-1">
-              <div ref={mapContainerRef} className="h-48 rounded-2xl border border-border shadow-soft overflow-hidden" />
+              <MapPicker
+                lat={lat}
+                lng={lng}
+                onChange={(newLat, newLng) => {
+                  setLat(newLat);
+                  setLng(newLng);
+                  reverseGeocode(newLat, newLng);
+                }}
+                className="h-48 w-full rounded-2xl border border-border shadow-soft overflow-hidden"
+              />
               <p className="text-[10px] text-muted-foreground text-center">
                 Click map or drag marker pin to match exact coordinates.
               </p>

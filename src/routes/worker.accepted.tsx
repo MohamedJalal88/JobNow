@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { useLanguage } from "@/lib/language";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth";
-import { loadGoogleMaps } from "@/lib/google-maps";
+import { MapDisplay } from "@/components/map";
 
 export const Route = createFileRoute("/worker/accepted")({
   head: () => ({ meta: [{ title: "Accepted jobs — JobNow" }] }),
@@ -61,26 +61,6 @@ function Accepted() {
   // GPS worker tracking states
   const [workerLat, setWorkerLat] = useState<number | null>(null);
   const [workerLng, setWorkerLng] = useState<number | null>(null);
-  const mapsRef = useRef<Record<string, any>>({});
-  const workerMarkersRef = useRef<Record<string, any>>({});
-
-  const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
-
-  // Dynamically load Google Maps on Mount (Client-side only)
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    async function loadGoogle() {
-      try {
-        await loadGoogleMaps();
-        setGoogleMapsLoaded(true);
-      } catch (err) {
-        console.error("Google Maps load error:", err);
-      }
-    }
-
-    loadGoogle();
-  }, []);
 
   useEffect(() => {
     async function loadActiveJobs() {
@@ -129,92 +109,7 @@ function Accepted() {
     loadActiveJobs();
   }, [user]);
 
-  // Load Google Maps for each active job card once Google Maps is loaded
-  useEffect(() => {
-    if (!googleMapsLoaded || !window.google?.maps) return;
 
-    if (jobs.length === 0) return;
-
-    jobs.forEach((j) => {
-      const containerId = `radius-map-${j.id}`;
-      const container = document.getElementById(containerId);
-      if (!container || mapsRef.current[j.id]) return;
-
-      const jobLat = j.latitude || 28.5355;
-      const jobLng = j.longitude || 77.3910;
-
-      const mapInstance = new window.google.maps.Map(container, {
-        center: { lat: jobLat, lng: jobLng },
-        zoom: 15,
-        disableDefaultUI: true,
-        zoomControl: true,
-      });
-
-      // Plot Job Site Marker
-      new window.google.maps.Marker({
-        position: { lat: jobLat, lng: jobLng },
-        map: mapInstance,
-        title: "Job Site",
-      });
-
-      // Draw Geofence boundary
-      new window.google.maps.Circle({
-        strokeColor: "#10b981",
-        strokeOpacity: 0.8,
-        strokeWeight: 2,
-        fillColor: "#10b981",
-        fillOpacity: 0.15,
-        map: mapInstance,
-        center: { lat: jobLat, lng: jobLng },
-        radius: j.geofenceRadiusMeters,
-      });
-
-      mapsRef.current[j.id] = mapInstance;
-    });
-
-    return () => {
-      mapsRef.current = {};
-    };
-  }, [jobs, googleMapsLoaded]);
-
-  // Plot Worker coordinates on the Google Maps when detected
-  useEffect(() => {
-    if (!workerLat || !workerLng || !googleMapsLoaded || !window.google?.maps) return;
-
-    Object.entries(mapsRef.current).forEach(([jobId, mapInstance]) => {
-      const job = jobs.find((jb) => jb.id === jobId);
-      if (!job) return;
-
-      // Plot or update Worker GPS Marker
-      if (workerMarkersRef.current[jobId]) {
-        workerMarkersRef.current[jobId].setPosition({ lat: workerLat, lng: workerLng });
-      } else {
-        const marker = new window.google.maps.Marker({
-          position: { lat: workerLat, lng: workerLng },
-          map: mapInstance,
-          title: "You",
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            scale: 6,
-            fillColor: "var(--primary)",
-            fillOpacity: 1,
-            strokeColor: "#ffffff",
-            strokeWeight: 2,
-          },
-        });
-        workerMarkersRef.current[jobId] = marker;
-      }
-
-      // Fit bounds to show both pin and circle
-      const jobLat = job.latitude || 28.5355;
-      const jobLng = job.longitude || 77.3910;
-      
-      const bounds = new window.google.maps.LatLngBounds();
-      bounds.extend({ lat: jobLat, lng: jobLng });
-      bounds.extend({ lat: workerLat, lng: workerLng });
-      mapInstance.fitBounds(bounds);
-    });
-  }, [workerLat, workerLng, jobs, googleMapsLoaded]);
 
   const totalPayout = jobs.reduce((s, j) => s + j.payPerDay * j.durationDays, 0);
 
@@ -389,7 +284,12 @@ function Accepted() {
                   {/* Visual Map Geofence Radius Map */}
                   <div className="px-5 pb-4">
                     <Label className="text-xs font-semibold text-muted-foreground">Live Site Geofence Boundary</Label>
-                    <div id={`radius-map-${j.id}`} className="h-44 w-full rounded-2xl border border-border mt-1.5 shadow-soft z-0" />
+                    <MapDisplay
+                      lat={j.latitude || 28.5355}
+                      lng={j.longitude || 77.3910}
+                      title="Job Site"
+                      className="h-44 w-full rounded-2xl border border-border mt-1.5 shadow-soft"
+                    />
                   </div>
 
                   {/* Geofenced QR Attendance Tracker Bar */}

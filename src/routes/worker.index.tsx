@@ -1,7 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, ChevronRight, IndianRupee, MapPin, TrendingUp, Map, List, Search, Navigation, Loader2 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,9 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { useLanguage } from "@/lib/language";
 import { supabase } from "@/lib/supabase";
-import { loadGoogleMaps, googleReverseGeocode, googleGeocodeSearch } from "@/lib/google-maps";
+import { googleReverseGeocode, googleGeocodeSearch } from "@/lib/google-maps";
+import { MapNearby } from "@/components/map";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/worker/")({
   head: () => ({ meta: [{ title: "Worker dashboard — JobNow" }] }),
@@ -37,6 +39,7 @@ function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
 function WorkerHome() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const firstName = user?.name?.split(" ")[0] ?? "there";
   const [skill, setSkill] = useState<string | null>(null);
   const [available, setAvailable] = useState(true);
@@ -56,23 +59,8 @@ function WorkerHome() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchingGps, setIsSearchingGps] = useState(false);
 
-  const mapRef = useRef<any>(null);
-  const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
-
-  // Load Google Maps dynamically on mount
+  // Load location on mount
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    async function loadGoogle() {
-      try {
-        await loadGoogleMaps();
-        setGoogleMapsLoaded(true);
-      } catch (err) {
-        console.error("Google Maps load error:", err);
-      }
-    }
-
-    loadGoogle();
     detectLocation();
   }, []);
 
@@ -127,100 +115,22 @@ function WorkerHome() {
     }
   };
 
-  // Load and Plot Map once Google Maps is loaded and viewMode is map
-  useEffect(() => {
-    if (viewMode !== "map" || !googleMapsLoaded || !window.google?.maps) {
-      if (mapRef.current) {
-        mapRef.current = null;
-      }
-      return;
-    }
+  const filtered = jobs.filter((j) => !skill || j.skill === skill);
 
-    const timer = setTimeout(() => {
-      const container = document.getElementById("dashboard-map");
-      if (!container || mapRef.current) return;
-
-      const currentLat = workerLat || 28.5355;
-      const currentLng = workerLng || 77.3910;
-
-      const mapInstance = new window.google.maps.Map(container, {
-        center: { lat: currentLat, lng: currentLng },
-        zoom: 13,
-        disableDefaultUI: true,
-        zoomControl: true,
-      });
-
-      // Plot Worker GPS Pin
-      if (workerLat && workerLng) {
-        new window.google.maps.Circle({
-          strokeColor: "#3b82f6",
-          strokeOpacity: 0.8,
-          strokeWeight: 2,
-          fillColor: "#3b82f6",
-          fillOpacity: 0.15,
-          map: mapInstance,
-          center: { lat: workerLat, lng: workerLng },
-          radius: 400,
-        });
-
-        new window.google.maps.Marker({
-          position: { lat: workerLat, lng: workerLng },
-          map: mapInstance,
-          title: "Your Location",
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            scale: 7,
-            fillColor: "#3b82f6",
-            fillOpacity: 1,
-            strokeColor: "#ffffff",
-            strokeWeight: 2,
-          },
-        });
-      }
-
-      // Plot Job Pins
-      filtered.forEach((j) => {
-        const jobLat = j.latitude || (workerLat ? workerLat + (Math.random() - 0.5) * 0.04 : 28.5355 + (Math.random() - 0.5) * 0.04);
-        const jobLng = j.longitude || (workerLng ? workerLng + (Math.random() - 0.5) * 0.04 : 77.3910 + (Math.random() - 0.5) * 0.04);
-
-        const marker = new window.google.maps.Marker({
-          position: { lat: jobLat, lng: jobLng },
-          map: mapInstance,
-          title: j.title,
-        });
-
-        const infoWindowContent = `
-          <div style="font-family: sans-serif; padding: 4px; min-width: 140px; color: black;">
-            <h4 style="font-weight: 800; font-size: 13px; margin: 0; color: #1e293b;">${j.title}</h4>
-            <p style="font-size: 11px; color: #64748b; margin: 2px 0 6px 0;">${j.contractor}</p>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-weight: 700; color: #1e3a8a; font-size: 12px;">₹${j.payPerDay}/d</span>
-              <span style="font-size: 10px; color: #94a3b8;">${j.distanceKm.toFixed(1)} km</span>
-            </div>
-            <hr style="margin: 8px 0; border: 0; border-top: 1px solid #e2e8f0;"/>
-            <a href="/worker/jobs/${j.id}" style="display: block; text-align: center; background: #1e3a8a; color: white; padding: 5px 8px; border-radius: 9999px; text-decoration: none; font-size: 10px; font-weight: 700;">View Details</a>
-          </div>
-        `;
-
-        const infoWindow = new window.google.maps.InfoWindow({
-          content: infoWindowContent,
-        });
-
-        marker.addListener("click", () => {
-          infoWindow.open(mapInstance, marker);
-        });
-      });
-
-      mapRef.current = mapInstance;
-    }, 100);
-
-    return () => {
-      clearTimeout(timer);
-      if (mapRef.current) {
-        mapRef.current = null;
-      }
+  const mapItems = filtered.map((j) => {
+    const jobLat = j.latitude || (workerLat ? workerLat + (Math.random() - 0.5) * 0.04 : 28.5355);
+    const jobLng = j.longitude || (workerLng ? workerLng + (Math.random() - 0.5) * 0.04 : 77.3910);
+    return {
+      id: j.id,
+      lat: Number(jobLat),
+      lng: Number(jobLng),
+      title: j.title,
+      subtitle: `${j.contractor} · ₹${j.payPerDay}/d · ${j.distanceKm.toFixed(1)} km`,
+      onClick: () => {
+        navigate({ to: `/worker/jobs/${j.id}` });
+      },
     };
-  }, [viewMode, googleMapsLoaded, workerLat, workerLng, jobs, skill]);
+  });
 
   // Load live jobs and filter
   useEffect(() => {
@@ -309,7 +219,7 @@ function WorkerHome() {
     loadData();
   }, [user, workerLat, workerLng]);
 
-  const filtered = jobs.filter((j) => !skill || j.skill === skill);
+
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 pt-6 md:pt-8 pb-10">
@@ -513,7 +423,15 @@ function WorkerHome() {
                 {isSearchingGps ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
               </Button>
             </form>
-            <div id="dashboard-map" className="h-[60vh] w-full rounded-[2rem] border border-border shadow-soft relative overflow-hidden" />
+            <div className="h-[60vh] w-full rounded-[2rem] border border-border shadow-soft relative overflow-hidden">
+              <MapNearby
+                centerLat={workerLat || 28.5355}
+                centerLng={workerLng || 77.3910}
+                radiusKm={10}
+                items={mapItems}
+                className="h-full w-full"
+              />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { useAuth, isProfileIncomplete } from "@/lib/auth";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
@@ -51,6 +51,20 @@ const testimonials = [
 function Landing() {
   const { user, isLoading, updateUser, logout } = useAuth();
   const navigate = useNavigate();
+  const [isMobileApp, setIsMobileApp] = useState(false);
+
+  useEffect(() => {
+    const checkIsMobileApp = () => {
+      const isNative =
+        typeof window !== "undefined" &&
+        (!!(window as any).Capacitor ||
+         navigator.userAgent.includes("JobNowMobileApp") ||
+         window.location.search.includes("platform=android") ||
+         window.location.search.includes("platform=ios"));
+      setIsMobileApp(isNative);
+    };
+    checkIsMobileApp();
+  }, []);
 
   useEffect(() => {
     if (!isLoading && user) {
@@ -169,7 +183,7 @@ function Landing() {
               Log in
             </Link>
             <Link to="/signup" className="inline-flex h-10 items-center px-5 rounded-full bg-gradient-primary text-primary-foreground text-sm font-semibold shadow-glow hover:opacity-95 transition-opacity">
-              Get started
+              Create account
             </Link>
           </div>
         </div>
@@ -192,32 +206,34 @@ function Landing() {
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link to="/signup" className="inline-flex items-center gap-2 h-12 px-6 rounded-full bg-gradient-primary text-primary-foreground font-semibold shadow-glow hover:opacity-95">
-                Get started <ArrowRight className="h-4 w-4" />
+                Create account <ArrowRight className="h-4 w-4" />
               </Link>
               <Link to="/login-choice" className="inline-flex items-center gap-2 h-12 px-6 rounded-full border border-border bg-card font-semibold hover:bg-muted">
                 Log in
               </Link>
             </div>
             
-            <div className="mt-6 flex flex-col sm:flex-row sm:items-center gap-3">
-              <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider shrink-0">Install App:</span>
-              <div className="flex flex-wrap gap-2">
-                <a 
-                  href="https://github.com/MohamedJalal88/JobNow/releases/download/v1.0.0/jobnow.apk" 
-                  download
-                  className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-full border border-border hover:border-primary/40 bg-card hover:bg-muted shadow-soft transition-all shrink-0"
-                >
-                  🤖 Download Android App (.apk)
-                </a>
-                <a 
-                  href="https://github.com/MohamedJalal88/JobNow/releases/download/v1.0.0/jobnow-setup.exe" 
-                  download
-                  className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-full border border-border hover:border-primary/40 bg-card hover:bg-muted shadow-soft transition-all shrink-0"
-                >
-                  💻 Download Windows App (.exe)
-                </a>
+            {!isMobileApp && (
+              <div className="mt-6 flex flex-col sm:flex-row sm:items-center gap-3">
+                <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider shrink-0">Install App:</span>
+                <div className="flex flex-wrap gap-2">
+                  <a 
+                    href="https://github.com/MohamedJalal88/JobNow/releases/download/v1.0.0/jobnow.apk" 
+                    download
+                    className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-full border border-border hover:border-primary/40 bg-card hover:bg-muted shadow-soft transition-all shrink-0"
+                  >
+                    🤖 Download Android App (.apk)
+                  </a>
+                  <a 
+                    href="https://github.com/MohamedJalal88/JobNow/releases/download/v1.0.0/jobnow-setup.exe" 
+                    download
+                    className="inline-flex items-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-full border border-border hover:border-primary/40 bg-card hover:bg-muted shadow-soft transition-all shrink-0"
+                  >
+                    💻 Download Windows App (.exe)
+                  </a>
+                </div>
               </div>
-            </div>
+            )}
             <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 max-w-xl">
               {stats.map((s) => (
                 <div key={s.v}>
@@ -381,7 +397,7 @@ function Landing() {
               <p className="mt-4 text-sm sm:text-base md:text-lg opacity-90">Join 60,000+ workers and contractors building India's most trusted daily wage marketplace.</p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link to="/signup" className="inline-flex items-center gap-2 h-12 px-6 rounded-full bg-white text-primary font-semibold shadow-elegant hover:scale-[1.02] transition-transform">
-                  Get started <ArrowRight className="h-4 w-4" />
+                  Create account <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link to="/login-choice" className="inline-flex items-center gap-2 h-12 px-6 rounded-full border border-white/30 text-white font-semibold hover:bg-white/10">
                   Log in

@@ -74,7 +74,7 @@ function RoleSelect() {
               if (role) {
                 localStorage.setItem("signup_role", role);
               }
-              nav({ to: "/auth-choice", search: { role: role! } });
+              nav({ to: "/register", search: { role: role! } });
             }}
             className="w-full h-13 py-3.5 rounded-full bg-gradient-primary text-primary-foreground font-semibold shadow-glow disabled:opacity-50 inline-flex items-center justify-center gap-2"
           >

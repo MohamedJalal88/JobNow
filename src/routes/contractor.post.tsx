@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, Navigation } from "lucide-react";
-import { loadGoogleMaps, googleReverseGeocode, googleGeocodeSearch } from "@/lib/google-maps";
+import { googleReverseGeocode, googleGeocodeSearch } from "@/lib/google-maps";
+import { MapPicker } from "@/components/map";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -52,9 +53,6 @@ function PostJob() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Maps and Geolocation states
-  const mapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
-  const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false);
   const [lat, setLat] = useState<number>(28.5355); // Noida default
   const [lng, setLng] = useState<number>(77.3910);
   const [isDetectingGps, setIsDetectingGps] = useState(false);
@@ -78,76 +76,6 @@ function PostJob() {
     }
   });
 
-  // Dynamically load Google Maps on mount (Client-side only)
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    async function loadGoogle() {
-      try {
-        await loadGoogleMaps();
-        setGoogleMapsLoaded(true);
-      } catch (err) {
-        console.error("Failed to load Google Maps dynamically:", err);
-      }
-    }
-
-    loadGoogle();
-  }, []);
-
-  // Callback ref to build map
-  const mapContainerRef = useCallback((node: HTMLDivElement | null) => {
-    if (!node) {
-      if (mapRef.current) {
-        mapRef.current = null;
-      }
-      return;
-    }
-
-    if (!googleMapsLoaded || !window.google?.maps) return;
-    if (mapRef.current) return;
-
-    try {
-      const mapInstance = new window.google.maps.Map(node, {
-        center: { lat, lng },
-        zoom: 13,
-        disableDefaultUI: true,
-        zoomControl: true,
-      });
-
-      const markerInstance = new window.google.maps.Marker({
-        position: { lat, lng },
-        map: mapInstance,
-        draggable: true,
-      });
-
-      mapRef.current = mapInstance;
-      markerRef.current = markerInstance;
-
-      markerInstance.addListener("dragend", () => {
-        const pos = markerInstance.getPosition();
-        if (pos) {
-          const newLat = pos.lat();
-          const newLng = pos.lng();
-          setLat(newLat);
-          setLng(newLng);
-          reverseGeocode(newLat, newLng);
-        }
-      });
-
-      mapInstance.addListener("click", (e: any) => {
-        const pos = e.latLng;
-        if (pos) {
-          markerInstance.setPosition(pos);
-          setLat(pos.lat());
-          setLng(pos.lng());
-          reverseGeocode(pos.lat(), pos.lng());
-        }
-      });
-    } catch (err) {
-      console.error("Google Maps post map init error:", err);
-    }
-  }, [googleMapsLoaded]);
-
   // Reverse Geocoding
   const reverseGeocode = async (latitude: number, longitude: number) => {
     try {
@@ -170,12 +98,6 @@ function PostJob() {
         setLat(latitude);
         setLng(longitude);
 
-        if (mapRef.current && markerRef.current) {
-          mapRef.current.setCenter({ lat: latitude, lng: longitude });
-          mapRef.current.setZoom(15);
-          markerRef.current.setPosition({ lat: latitude, lng: longitude });
-        }
-
         reverseGeocode(latitude, longitude);
         toast.success("GPS Coordinates mapped!");
         setIsDetectingGps(false);
@@ -197,12 +119,6 @@ function PostJob() {
       const longitude = result.longitude;
       setLat(latitude);
       setLng(longitude);
-
-      if (mapRef.current && markerRef.current) {
-        mapRef.current.setCenter({ lat: latitude, lng: longitude });
-        mapRef.current.setZoom(15);
-        markerRef.current.setPosition({ lat: latitude, lng: longitude });
-      }
       
       setValue("location", result.locationName, { shouldValidate: true, shouldDirty: true });
       toast.success("Location found and marked on map!");
@@ -419,15 +335,18 @@ function PostJob() {
           </div>
           {errors.location && <p className="mt-1 text-xs text-destructive">{errors.location.message}</p>}
 
-          {/* Google Map Picker div */}
+          {/* Leaflet Map Picker */}
           <div className="mt-2 space-y-1">
-            <div ref={mapContainerRef} className="h-60 rounded-2xl border border-border shadow-soft overflow-hidden relative">
-              {!googleMapsLoaded && (
-                <div className="absolute inset-0 flex items-center justify-center bg-muted text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5"><Loader2 className="h-4 w-4 animate-spin text-primary" /> Loading Map Interface...</span>
-                </div>
-              )}
-            </div>
+            <MapPicker
+              lat={lat}
+              lng={lng}
+              onChange={(newLat, newLng) => {
+                setLat(newLat);
+                setLng(newLng);
+                reverseGeocode(newLat, newLng);
+              }}
+              className="h-60 w-full rounded-2xl border border-border shadow-soft overflow-hidden"
+            />
             <p className="text-[10px] text-muted-foreground text-center">
               Click the map or drag the pin to select the job site location.
             </p>
