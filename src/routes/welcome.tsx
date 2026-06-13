@@ -59,11 +59,24 @@ function Landing() {
         typeof window !== "undefined" &&
         (!!(window as any).Capacitor ||
          navigator.userAgent.includes("JobNowMobileApp") ||
+         (navigator.userAgent.includes("Android") && navigator.userAgent.includes("wv")) ||
          window.location.search.includes("platform=android") ||
          window.location.search.includes("platform=ios"));
-      setIsMobileApp(isNative);
+      if (isNative) {
+        setIsMobileApp(true);
+      }
     };
+    
+    // Check immediately
     checkIsMobileApp();
+    
+    // Re-check after a series of delays to handle asynchronous Capacitor bridge injection
+    const checks = [50, 100, 200, 500, 1000, 2000];
+    const timers = checks.map((delay) => setTimeout(checkIsMobileApp, delay));
+    
+    return () => {
+      timers.forEach(clearTimeout);
+    };
   }, []);
 
   useEffect(() => {
