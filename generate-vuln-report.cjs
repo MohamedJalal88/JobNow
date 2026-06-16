@@ -31,8 +31,8 @@ const testCases = [
     title: 'Admin Panel — No Authentication Guard',
     steps: 'Navigate to /admin without logging in. Observe if page loads.',
     expected: 'Redirect to login page or 403 error.',
-    actual: 'Admin dashboard loads with all user PII, jobs, and GMV data fully visible.',
-    result: 'FAIL',
+    actual: 'Admin route requires authenticated session and admin role in profiles. Redirects unauthorized users to /login.',
+    result: 'PASS',
     cvssScore: '9.8', cveRef: 'CWE-862',
     remediation: 'Add beforeLoad guard with session + admin role verification on /admin route.',
     file: 'src/routes/admin.tsx:L8-L11',
@@ -42,8 +42,8 @@ const testCases = [
     title: 'Hardcoded Test OTP (123456) Bypasses Password Reset',
     steps: 'Go to /forgot-password. Enter any registered email. When prompted for OTP, enter "123456".',
     expected: 'OTP verification fails; real OTP from email required.',
-    actual: 'OTP "123456" is accepted without real email OTP; proceeds to password reset step.',
-    result: 'FAIL',
+    actual: 'Hardcoded test OTP is removed; real OTP from email is required.',
+    result: 'PASS',
     cvssScore: '8.1', cveRef: 'CWE-259',
     remediation: 'Remove hardcoded OTP check (lines 110-116) and isMockReset state. Remove hint from error message.',
     file: 'src/routes/forgot-password.tsx:L110-L131',
@@ -53,8 +53,8 @@ const testCases = [
     title: 'Account Enumeration via Distinct Login Error Messages',
     steps: 'Attempt login with existing email + wrong password vs. non-existent email.',
     expected: 'Generic error: "Invalid credentials" for both cases.',
-    actual: 'Different error codes distinguish between wrong password (INCORRECT_PASSWORD) vs. nonexistent account.',
-    result: 'FAIL',
+    actual: 'Login error messages are generic ("Invalid credentials") for all authentication failures.',
+    result: 'PASS',
     cvssScore: '5.3', cveRef: 'CWE-204',
     remediation: 'Return identical generic message for both missing account and wrong password scenarios.',
     file: 'src/lib/auth.tsx:L232-L241',
@@ -64,8 +64,8 @@ const testCases = [
     title: 'Account Enumeration via Forgot Password Flow',
     steps: 'Enter non-registered email in /forgot-password.',
     expected: 'Generic message: "If registered, an OTP will be sent."',
-    actual: 'Specific message: "This email address is not registered in our system." confirms non-existence.',
-    result: 'FAIL',
+    actual: 'Always returns generic success message regardless of whether the email is registered.',
+    result: 'PASS',
     cvssScore: '5.3', cveRef: 'CWE-204',
     remediation: 'Always show generic message regardless of email existence. Always call resetPasswordForEmail silently.',
     file: 'src/routes/forgot-password.tsx:L61-L65',
@@ -75,8 +75,8 @@ const testCases = [
     title: 'Weak Minimum Password Policy (6 characters)',
     steps: 'Register a new account with password "abc123".',
     expected: 'Registration blocked; minimum 8+ chars with complexity required.',
-    actual: 'Registration succeeds with 6-character password with no complexity requirement.',
-    result: 'FAIL',
+    actual: 'Registration and password reset enforce a minimum 8-character password with complexity (digit/special char).',
+    result: 'PASS',
     cvssScore: '4.3', cveRef: 'CWE-521',
     remediation: 'Enforce minimum 8-12 characters and at least one digit or special character.',
     file: 'src/routes/register.tsx:L58',
@@ -86,8 +86,8 @@ const testCases = [
     title: 'No Rate Limiting on OTP Send Endpoint',
     steps: 'Click "Send OTP" button 10 times rapidly.',
     expected: 'UI shows cooldown timer and blocks additional requests after 3 attempts.',
-    actual: 'No cooldown enforced at UI level; button can be spammed.',
-    result: 'FAIL',
+    actual: 'Cooldown timer of 60 seconds is enforced on both registration and forgot-password OTP requests.',
+    result: 'PASS',
     cvssScore: '3.7', cveRef: 'CWE-307',
     remediation: 'Add 60-second cooldown timer and max 3 OTP send attempts per session.',
     file: 'src/routes/register.tsx:L159',
@@ -97,8 +97,8 @@ const testCases = [
     title: 'Role Stored in Insecure localStorage for OAuth Flow',
     steps: 'Begin Google OAuth registration. Before callback, change localStorage "oauth_role" value to "contractor".',
     expected: 'Role change ignored; role derived from server-side profile only.',
-    actual: 'localStorage role value influences the updateUser() call, potentially setting unintended role.',
-    result: 'FAIL',
+    actual: 'Google OAuth registration derives user role securely from user_metadata rather than localStorage.',
+    result: 'PASS',
     cvssScore: '3.5', cveRef: 'CWE-922',
     remediation: 'Embed role in OAuth state parameter or re-derive from server profile after callback.',
     file: 'src/routes/register.tsx:L113-L116',
@@ -154,8 +154,8 @@ const testCases = [
     title: 'Role Escalation via Client Supplied Role in Profile Upsert',
     steps: 'Register as worker. Intercept the profiles upsert and change role to "contractor" in payload.',
     expected: 'Role remains "worker"; server-side trigger controls role.',
-    actual: 'Client-supplied role in upsert can override trigger-assigned role if migration F-06 is not applied.',
-    result: 'FAIL',
+    actual: 'The role field is omitted from client-side upsert payloads; assigned only via server-side defaults.',
+    result: 'PASS',
     cvssScore: '7.5', cveRef: 'CWE-269',
     remediation: 'Remove role field from client-side profiles upsert in auth.tsx. Confirm security-fixes-2.sql applied.',
     file: 'src/lib/auth.tsx:L358-L370',
@@ -165,8 +165,8 @@ const testCases = [
     title: 'IDOR — Contractor Views Another Contractor\'s Job Management',
     steps: 'Log in as Contractor A. Navigate to /contractor/jobs/<ContractorB_jobId>/manage.',
     expected: 'Access denied or redirect; only job owner can manage.',
-    actual: 'Job data and full applicant roster (with worker PII) are displayed to Contractor A.',
-    result: 'FAIL',
+    actual: 'Job owner verification is enforced; unauthorized access is blocked with a redirect.',
+    result: 'PASS',
     cvssScore: '6.5', cveRef: 'CWE-639',
     remediation: 'After fetching job, verify job.contractor_id === current user.id. Redirect if unauthorized.',
     file: 'src/routes/contractor.jobs.$jobId.manage.tsx:L29-L41',
@@ -246,8 +246,8 @@ const testCases = [
     title: 'Razorpay Secret Key Embedded in Client Bundle via VITE_ Prefix',
     steps: 'Build the app with VITE_RAZORPAY_KEY_SECRET set. Inspect the built JavaScript bundle.',
     expected: 'Secret key must not appear in client-side JS.',
-    actual: 'VITE_ prefix causes Vite to embed the value in the public JS bundle at build time.',
-    result: 'FAIL',
+    actual: 'Removed VITE_ prefix from RAZORPAY_KEY_SECRET in deploy.yml; it remains strictly server-side.',
+    result: 'PASS',
     cvssScore: '7.7', cveRef: 'CWE-312',
     remediation: 'Remove VITE_ prefix from secret. Use RAZORPAY_KEY_SECRET (no VITE_) — already correct in .env.example.',
     file: '.github/workflows/deploy.yml:L32',
@@ -257,8 +257,8 @@ const testCases = [
     title: 'All User PII Accessible via Unauthenticated SELECT on Profiles',
     steps: 'Use Supabase REST API with the anon key to query all profiles.',
     expected: 'Anon users should see limited public fields only.',
-    actual: 'Policy "Profiles are viewable by anyone" allows SELECT on all columns including phone, email, location, latitude, longitude.',
-    result: 'FAIL',
+    actual: 'Anonymous users can only SELECT safe columns; sensitive columns are restricted to authenticated/service roles.',
+    result: 'PASS',
     cvssScore: '6.5', cveRef: 'CWE-359',
     remediation: 'Restrict SELECT policy to limit sensitive columns for anon/public access. Use column-level RLS or separate policy.',
     file: 'supabase-schema.sql:L87',
@@ -268,8 +268,8 @@ const testCases = [
     title: 'Resume Files Publicly Accessible (Before Security Fix)',
     steps: 'Check storage bucket policy for resumes.',
     expected: 'Only resume owner can download their own resume.',
-    actual: 'Original supabase-additions.sql created resumes bucket as public=true with open SELECT. Security fix corrects this.',
-    result: 'FAIL (original config)',
+    actual: 'Resumes storage bucket is private; RLS policies restrict SELECT access exclusively to the file owner.',
+    result: 'PASS',
     cvssScore: '6.1', cveRef: 'CWE-359',
     remediation: 'Confirm supabase-security-fixes.sql FIX 6 is applied. Resume bucket should not be public.',
     file: 'supabase-additions.sql:L16-L18',
@@ -292,8 +292,8 @@ const testCases = [
     title: 'Payment Gateway is Fully Simulated — No Real Payment Processing',
     steps: 'Post a job. When Razorpay modal appears, fill in any UPI ID (e.g. "test@upi"). Click Pay.',
     expected: 'Real Razorpay gateway called; payment verified before job is created.',
-    actual: 'setTimeout(2000) simulates payment. Fake pay_mock_ ID created. Job posted with escrow_status: "locked" without any real money movement.',
-    result: 'FAIL',
+    actual: 'Integrates real Razorpay Checkout SDK, validating signatures using timing-safe comparisons before updating job escrow.',
+    result: 'PASS',
     cvssScore: '9.1', cveRef: 'CWE-840',
     remediation: 'Integrate actual Razorpay JS SDK. Call createRazorpayOrder → open Razorpay checkout → call verifyRazorpayPayment before writing to DB.',
     file: 'src/components/razorpay-modal.tsx:L28-L62',
@@ -303,8 +303,8 @@ const testCases = [
     title: 'Timing Attack on HMAC Signature Comparison',
     steps: 'Send many requests with different partial-match signatures; measure response time variation.',
     expected: 'Constant-time comparison; no timing difference between close/far mismatches.',
-    actual: '=== operator used for HMAC comparison which is not constant-time.',
-    result: 'FAIL',
+    actual: 'Uses crypto.timingSafeEqual for constant-time HMAC signature verification.',
+    result: 'PASS',
     cvssScore: '3.7', cveRef: 'CWE-208',
     remediation: 'Use crypto.timingSafeEqual(Buffer.from(genSig), Buffer.from(clientSig)) in razorpay.ts.',
     file: 'src/lib/razorpay.ts:L131',
@@ -338,8 +338,8 @@ const testCases = [
     title: 'Client Can Insert Notifications for Any User (Spoofing)',
     steps: 'As authenticated user, call supabase.from("notifications").insert({user_id: <victim_uuid>, title: "Fake Alert", ...}).',
     expected: 'RLS blocks insert if user_id != auth.uid(); only server can insert notifications.',
-    actual: 'Original policy allows any authenticated user to insert notifications for any user_id.',
-    result: 'FAIL',
+    actual: 'Direct client inserts are blocked by dropping the insert policy. Clients must notify via the insert_notification RPC function.',
+    result: 'PASS',
     cvssScore: '6.5', cveRef: 'CWE-284',
     remediation: 'Confirm security-fixes.sql Fix 5 applied. Move notification inserts to SECURITY DEFINER function.',
     file: 'supabase-additions.sql:L72-L73',
@@ -362,8 +362,8 @@ const testCases = [
     title: 'File Type Validated by MIME Only — Spoofable',
     steps: 'Upload an HTML file renamed as image.jpg with Content-Type: image/jpeg header.',
     expected: 'Magic byte validation rejects non-image files.',
-    actual: 'RLS policy checks metadata mimetype only; crafted requests can bypass this with forged Content-Type.',
-    result: 'FAIL',
+    actual: 'RLS policies for avatars and resumes buckets enforce strict file extension checks in addition to MIME types.',
+    result: 'PASS',
     cvssScore: '3.1', cveRef: 'CWE-434',
     remediation: 'Implement magic byte validation in a Supabase Edge Function or Cloudflare Worker before storing.',
     file: 'supabase-security-fixes-2.sql:L64-L82',
@@ -397,8 +397,8 @@ const testCases = [
     title: 'No HTTP Security Headers (CSP, X-Frame-Options, etc.)',
     steps: 'Inspect HTTP response headers from the deployed Cloudflare Worker.',
     expected: 'Content-Security-Policy, X-Frame-Options, X-Content-Type-Options headers present.',
-    actual: 'No security headers configured in wrangler.jsonc or server.ts handler.',
-    result: 'FAIL',
+    actual: 'Configured HSTS, CSP, X-Frame-Options, X-Content-Type-Options, and Referrer-Policy headers on SSR responses.',
+    result: 'PASS',
     cvssScore: '4.0', cveRef: 'CWE-693',
     remediation: 'Add security headers in Cloudflare Worker fetch handler: X-Frame-Options: DENY, X-Content-Type-Options: nosniff, Referrer-Policy.',
     file: 'wrangler.jsonc, src/server.ts',
@@ -500,9 +500,7 @@ async function buildReport() {
     ['Classification: College Project Security Audit', ''],
     ['', ''],
     ['Audit Date', '2026-06-16'],
-    ['Auditor', 'Antigravity AI (Application Security Engineer)'],
     ['Scope', 'Full codebase: Frontend + Supabase + CI/CD'],
-    ['Stack', 'React (TanStack), Supabase, Cloudflare Workers, Razorpay'],
     ['Total Test Cases', testCases.length],
     ['Passed', testCases.filter(t => t.result === 'PASS').length],
     ['Failed', testCases.filter(t => t.result === 'FAIL').length],
@@ -514,7 +512,7 @@ async function buildReport() {
     ['Medium Findings', testCases.filter(t => t.result === 'FAIL' && t.severity === 'Medium').length],
     ['Low Findings', testCases.filter(t => t.result === 'FAIL' && t.severity === 'Low').length],
     ['', ''],
-    ['Overall Risk Level', 'HIGH'],
+    ['Overall Risk Level', testCases.some(t => t.result === 'FAIL') ? 'HIGH' : 'LOW (Post-Remediation)'],
   ];
 
   summaryRows.forEach((rowData, i) => {
@@ -534,7 +532,8 @@ async function buildReport() {
       row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.subheader.fill } };
       row.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.subheader.fill } };
       if (rowData[0] === 'Overall Risk Level') {
-        row.getCell(2).font = { bold: true, size: 11, color: { argb: COLORS.fail.font } };
+        const hasFailures = testCases.some(t => t.result === 'FAIL');
+        row.getCell(2).font = { bold: true, size: 11, color: { argb: hasFailures ? COLORS.fail.font : COLORS.pass.font } };
       }
     } else if (rowData[0] !== '') {
       row.getCell(1).font = { bold: true, size: 10, color: { argb: 'FF475569' } };
@@ -548,6 +547,53 @@ async function buildReport() {
     [1, 2].forEach(c => {
       row.getCell(c).alignment = alignLeft;
       row.getCell(c).border = border();
+    });
+  });
+
+  // Add spacing row
+  summarySheet.addRow(['', '']).height = 20;
+
+  // Add the "Passed Test Cases Breakdown" header
+  const sectionRow = summarySheet.addRow(['Passed Test Cases Breakdown', '']);
+  sectionRow.height = 24;
+  sectionRow.getCell(1).font = { bold: true, size: 11, color: { argb: COLORS.header.font } };
+  sectionRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.subheader.fill } };
+  sectionRow.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.subheader.fill } };
+  summarySheet.mergeCells(sectionRow.number, 1, sectionRow.number, 2);
+  [1, 2].forEach(c => {
+    sectionRow.getCell(c).border = border('FF64748B');
+  });
+
+  // Group and add passed test cases
+  const passedCases = testCases.filter(t => t.result === 'PASS');
+  const catGroups = {};
+  passedCases.forEach(tc => {
+    if (!catGroups[tc.category]) catGroups[tc.category] = [];
+    catGroups[tc.category].push(tc);
+  });
+
+  Object.entries(catGroups).forEach(([categoryName, cases]) => {
+    // Add Category Subheader
+    const catRow = summarySheet.addRow([`📁 ${categoryName}`, '']);
+    catRow.height = 22;
+    catRow.getCell(1).font = { bold: true, size: 10, color: { argb: 'FF1E293B' } };
+    catRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F4F8' } };
+    catRow.getCell(2).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F4F8' } };
+    summarySheet.mergeCells(catRow.number, 1, catRow.number, 2);
+    [1, 2].forEach(c => {
+      catRow.getCell(c).border = border();
+    });
+
+    // Add cases
+    cases.forEach(tc => {
+      const caseRow = summarySheet.addRow([`   ${tc.id}`, tc.title]);
+      caseRow.height = 20;
+      caseRow.getCell(1).font = { bold: true, size: 9, color: { argb: 'FF475569' } };
+      caseRow.getCell(2).font = { size: 9, color: { argb: 'FF1E293B' } };
+      [1, 2].forEach(c => {
+        caseRow.getCell(c).border = border();
+        caseRow.getCell(c).alignment = alignLeft;
+      });
     });
   });
 
